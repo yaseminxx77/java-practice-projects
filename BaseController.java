@@ -1,8 +1,7 @@
-package com.vizja.sw.lab5.lib;
+package com.vizja.swp.lab2.lib;
 
-
-import com.vizja.sw.lab5.lib.http.HttpRequest;
-import com.vizja.sw.lab5.lib.http.HttpResponse;
+import com.vizja.swp.lab2.lib.http.HttpRequest;
+import com.vizja.swp.lab2.lib.http.HttpResponse;
 
 public abstract class BaseController {
 

@@ -1,8 +1,15 @@
-package com.vizja.sw.lab5.lib;
+package com.vizja.swp.lab2.lib;
 
+import com.vizja.swp.lab2.lib.http.HttpRequest;
+import com.vizja.swp.lab2.lib.http.HttpResponse;
 
-import com.vizja.sw.lab5.lib.http.HttpRequest;
-import com.vizja.sw.lab5.lib.http.HttpResponse;
+import com.vizja.swp.lab2.lib.filter.Filter;
+import com.vizja.swp.lab2.lib.filter.FilterChain;
+import com.vizja.swp.lab2.lib.filter.LoggingFilter;
+import com.vizja.swp.lab2.lib.filter.AuthenticationFilter;
+import com.vizja.swp.lab2.lib.filter.ApiFilter;
+import com.vizja.swp.lab2.lib.filter.FrontControllerFilter;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,11 +20,13 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Server implements AutoCloseable {
+
     private static final Logger log = LoggerFactory.getLogger(Server.class);
 
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
@@ -31,7 +40,7 @@ public class Server implements AutoCloseable {
         }
 
         isRunning.set(true);
-        executorService = Executors.newVirtualThreadPerTaskExecutor();
+        executorService = Executors.newFixedThreadPool(3);
         Runtime.getRuntime().addShutdownHook(new Thread(this::close));
 
         try (var server = new ServerSocket(port)) {
@@ -46,7 +55,8 @@ public class Server implements AutoCloseable {
 
         } catch (IOException exception) {
             if (isRunning.get()) log.error("Unexpected server error", exception);
-        } finally {
+        }
+        finally {
             close();
         }
     }
@@ -61,11 +71,20 @@ public class Server implements AutoCloseable {
                 if (requestLine == null || requestLine.isBlank()) return;
 
                 log.info("Request Line: {}", requestLine);
-                final var request = HttpRequest.parse(requestLine, in);
-                final var response = new HttpResponse(out);
 
-                FrontController.handle(request, response);
+                HttpRequest request = HttpRequest.parse(requestLine, in);
+                HttpResponse response = new HttpResponse();
 
+                List<Filter> filters = List.of(
+                        new LoggingFilter(),         // 1) Loglama
+                        new ApiFilter(),             // 2) API key doğrulama
+                        new AuthenticationFilter(),  // 3) Login cookie doğrulama
+                        new FrontControllerFilter()  // 4) Controller'ı çalıştırma
+                );
+
+                FilterChain chain = new FilterChain(filters);
+                chain.doFilter(request, response);
+                out.write(response.toString());
                 out.flush();
 
             } catch (IOException e) {
@@ -73,7 +92,6 @@ public class Server implements AutoCloseable {
             }
         });
     }
-
 
     @Override
     public void close() {
@@ -105,5 +123,4 @@ public class Server implements AutoCloseable {
             log.info("Server stopped cleanly.");
         }
     }
-
 }

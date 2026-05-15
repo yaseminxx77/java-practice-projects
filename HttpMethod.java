@@ -1,4 +1,4 @@
-package com.vizja.sw.lab5.lib.http;
+package com.vizja.swp.lab2.lib.http;
 
 public enum HttpMethod {
     GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD;

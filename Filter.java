@@ -1,10 +1,8 @@
-package com.vizja.sw.lab5.lib.filter;
+package com.vizja.swp.lab2.lib.filter;
 
+import com.vizja.swp.lab2.lib.http.HttpRequest;
+import com.vizja.swp.lab2.lib.http.HttpResponse;
 
-import com.vizja.sw.lab5.lib.http.HttpRequest;
-import com.vizja.sw.lab5.lib.http.HttpResponse;
-
-@FunctionalInterface
 public interface Filter {
-    void doFilter(HttpRequest request, HttpResponse response, FilterChain chain) throws Exception;
+    void doFilter(HttpRequest request, HttpResponse response, FilterChain chain);
 }
