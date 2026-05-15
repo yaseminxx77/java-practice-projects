@@ -1,46 +1,93 @@
-package com.vizja.swp.lab2.lib.http;
+package com.vizja.sw.lab5.lib.http;
 
+import lombok.Getter;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
-public class HttpResponse {
-    private final StringWriter bodyWriter = new StringWriter();
-    private final PrintWriter writer = new PrintWriter(bodyWriter);
+import static com.vizja.sw.lab5.lib.http.HttpUtil.CRLF;
+import static com.vizja.sw.lab5.lib.http.HttpUtil.HEADER_CONTENT_TYPE;
+import static com.vizja.sw.lab5.lib.http.HttpUtil.HEADER_SET_COOKIE;
+import static com.vizja.sw.lab5.lib.http.HttpUtil.SUPPORTED_HTTP_VERSIONS;
+
+
+public final class HttpResponse {
+    private final PrintWriter writer;
+
     private final Map<String, String> headers = new LinkedHashMap<>();
+    private final List<Cookie> cookies = new ArrayList<>();
+
+    @Getter
     private int statusCode = 200;
+    @Getter
     private String statusMessage = "OK";
 
+    private boolean committed = false;
+
+
+    public HttpResponse(BufferedWriter bufferedWriter) {
+        this.writer = new PrintWriter(bufferedWriter);
+    }
+
+    public void addCookie(Cookie cookie) {
+        checkCommitted();
+        this.cookies.add(cookie);
+    }
+
+
     public PrintWriter getWriter() {
+        commit();
         return writer;
     }
 
     public void setStatus(int code, String message) {
+        checkCommitted();
         this.statusCode = code;
         this.statusMessage = message;
     }
 
+
     public void setHeader(String key, String value) {
+        checkCommitted();
         headers.put(key, value);
     }
 
-    @Override
-    public String toString() {
 
-        writer.flush();
-        String body = bodyWriter.toString();
+    private void checkCommitted() {
+        if (this.committed) {
+            throw new IllegalStateException("Response has already been committed. Cannot set status or headers.");
+        }
+    }
 
-        headers.putIfAbsent("Content-Type", "text/html; charset=UTF-8");
-        int contentLength = body.getBytes(StandardCharsets.UTF_8).length;
-        headers.putIfAbsent("Content-Length", String.valueOf(contentLength));
+    private void commit() {
+        if (this.committed) {
+            return;
+        }
+        this.committed = true;
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("HTTP/1.1 ").append(statusCode).append(" ").append(statusMessage).append("\r\n");
-        headers.forEach((k, v) -> sb.append(k).append(": ").append(v).append("\r\n"));
-        sb.append("\r\n");
-        sb.append(body);
-        return sb.toString();
+        headers.putIfAbsent(HEADER_CONTENT_TYPE, "text/html; charset=UTF-8");
+
+        try {
+            writer.write(SUPPORTED_HTTP_VERSIONS + " " + statusCode + " " + statusMessage + CRLF);
+
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                writer.write(entry.getKey() + ": " + entry.getValue() + CRLF);
+            }
+
+            for (Cookie cookie : cookies) {
+                writer.write(HEADER_SET_COOKIE + ": " + cookie.toString() + CRLF);
+            }
+
+            writer.write(CRLF);
+
+        } catch (Exception exception) {
+            throw new UncheckedIOException(new IOException("Failed to write headers to client", exception));
+        }
     }
 }

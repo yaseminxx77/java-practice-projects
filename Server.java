@@ -1,6 +1,8 @@
-package com.vizja.swp.lab2.lib;
+package com.vizja.sw.lab5.lib;
 
-import com.vizja.swp.lab2.lib.http.HttpRequest;
+
+import com.vizja.sw.lab5.lib.http.HttpRequest;
+import com.vizja.sw.lab5.lib.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +31,7 @@ public class Server implements AutoCloseable {
         }
 
         isRunning.set(true);
-        executorService = Executors.newFixedThreadPool(3);
+        executorService = Executors.newVirtualThreadPerTaskExecutor();
         Runtime.getRuntime().addShutdownHook(new Thread(this::close));
 
         try (var server = new ServerSocket(port)) {
@@ -44,8 +46,9 @@ public class Server implements AutoCloseable {
 
         } catch (IOException exception) {
             if (isRunning.get()) log.error("Unexpected server error", exception);
+        } finally {
+            close();
         }
-        finally {close();}
     }
 
     private void handleClient(Socket client) {
@@ -58,10 +61,11 @@ public class Server implements AutoCloseable {
                 if (requestLine == null || requestLine.isBlank()) return;
 
                 log.info("Request Line: {}", requestLine);
-                var request = HttpRequest.parse(requestLine, in);
-                var response = FrontController.handle(request);
+                final var request = HttpRequest.parse(requestLine, in);
+                final var response = new HttpResponse(out);
 
-                out.write(response.toString());
+                FrontController.handle(request, response);
+
                 out.flush();
 
             } catch (IOException e) {
